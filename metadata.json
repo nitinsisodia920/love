@@ -1,0 +1,8 @@
+{
+  "name": "Soulmate AI - Immersive",
+  "description": "Next-gen AI companion with real-time voice interaction, dynamic moods, and affinity-based progression.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
