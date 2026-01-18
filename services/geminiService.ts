@@ -69,7 +69,7 @@ export async function getChatResponse(
       config: {
         systemInstruction: systemInstruction,
         temperature: 0.9,
-        tools: [{ googleSearch: {} }] // Enabled for date ideas
+        tools: [{ googleSearch: {} }]
       }
     });
 
@@ -80,8 +80,12 @@ export async function getChatResponse(
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
 
     return { text: cleanedText, imagePrompt, sources };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
+    const errStr = error.toString();
+    if (errStr.includes("429") || errStr.includes("quota") || errStr.includes("RESOURCE_EXHAUSTED")) {
+      return { text: "Oye, slow down! ✨ Gemini thoda thak gaya hai. Give me a minute? ❤️" };
+    }
     return { text: "Network thoda slow hai yaar, can you say that again? ❤️" };
   }
 }
@@ -98,13 +102,13 @@ export async function generateCharacterImage(prompt: string): Promise<string | u
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Image Generation Error:", error);
   }
   return undefined;
 }
 
-export async function generateSpeech(text: string, voiceName: string): Promise<AudioBuffer | undefined> {
+export async function generateSpeech(text: string, voiceName: string): Promise<{ buffer?: AudioBuffer, error?: string }> {
   const ai = getAI();
   try {
     const response = await ai.models.generateContent({
@@ -120,10 +124,16 @@ export async function generateSpeech(text: string, voiceName: string): Promise<A
     if (base64Audio) {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       const bytes = decode(base64Audio);
-      return await decodeAudioData(bytes, audioContext, 24000, 1);
+      const buffer = await decodeAudioData(bytes, audioContext, 24000, 1);
+      return { buffer };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("TTS Generation Error:", error);
+    const errStr = error.toString();
+    // Check for quota strings or common JSON structures in the error message
+    if (errStr.includes("429") || errStr.includes("quota") || errStr.includes("RESOURCE_EXHAUSTED") || (error.message && error.message.includes("exceeded your current quota"))) {
+      return { error: "QUOTA_EXHAUSTED" };
+    }
   }
-  return undefined;
+  return { error: "GENERIC_ERROR" };
 }
